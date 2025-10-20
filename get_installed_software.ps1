@@ -84,10 +84,21 @@ foreach ($CustomPath in $CustomInventoryPaths) {
     
     if (Test-Path -Path $CustomPath -PathType Container) {
         
-        Write-Host "Scanning directory: $CustomPath (Filter: '$CustomFilterPrefix*')" -ForegroundColor Green
+        $CustomFolders = @()
         
-        $CustomFolders = Get-ChildItem -Path $CustomPath -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "$CustomFilterPrefix*" }
+        # Determine scanning depth based on prefix filter
+        if ($CustomFilterPrefix -ne "*") {
+            # Deep scan (Recursive) - required when looking for a specific prefix at any depth
+            Write-Host "Scanning directory RECURSIVELY: $CustomPath (Filter: '$CustomFilterPrefix*')" -ForegroundColor Green
+            $CustomFolders = Get-ChildItem -Path $CustomPath -Directory -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like "$CustomFilterPrefix*" }
+        } else {
+            # Shallow scan (Non-recursive) - default behavior when looking for all immediate subfolders
+            Write-Host "Scanning directory SHALLOWLY: $CustomPath (Filter: '$CustomFilterPrefix*')" -ForegroundColor Green
+            # Note: The -Recurse parameter is omitted here
+            $CustomFolders = Get-ChildItem -Path $CustomPath -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like "$CustomFilterPrefix*" }
+        }
         
         if ($CustomFolders.Count -eq 0) {
             Write-Host "No folders matching '$CustomFilterPrefix*' found in $CustomPath. Skipping." -ForegroundColor DarkYellow
@@ -116,6 +127,7 @@ foreach ($CustomPath in $CustomInventoryPaths) {
                 $SizeInGB = "ACCESSING ERROR"
             }
             
+            # Add the portable application entry
             $InstalledSoftware += [PSCustomObject]@{
                 'Editor'              = "Custom/Portable"
                 'Program Name'        = $ProgramName
@@ -141,3 +153,4 @@ Write-Host "********************************************************************
 Write-Host "PROCESS COMPLETED!" -ForegroundColor Green
 Write-Host "The COMPLETE inventory (Registry & Custom) has been saved to: $OutputFilePath" -ForegroundColor Green
 Write-Host "********************************************************************************"
+
