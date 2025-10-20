@@ -9,6 +9,9 @@ $RegistryPaths = @(
     @{ Path = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" ; Arch = "32-bit (WOW64)" }
 )
 
+# Default Value '*' =  Everything
+$CustomFilterPrefix = "*"
+
 $CustomInventoryPaths = @(
     "C:\Tools",        
     "D:\PortableApps", 
@@ -81,11 +84,16 @@ foreach ($CustomPath in $CustomInventoryPaths) {
     
     if (Test-Path -Path $CustomPath -PathType Container) {
         
-        Write-Host "Scanning directory: $CustomPath" -ForegroundColor Green
+        Write-Host "Scanning directory: $CustomPath (Filter: '$CustomFilterPrefix*')" -ForegroundColor Green
         
-        # Get all immediate subdirectories (each is treated as a program)
-        $CustomFolders = Get-ChildItem -Path $CustomPath -Directory -ErrorAction SilentlyContinue
+        $CustomFolders = Get-ChildItem -Path $CustomPath -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "$CustomFilterPrefix*" }
         
+        if ($CustomFolders.Count -eq 0) {
+            Write-Host "No folders matching '$CustomFilterPrefix*' found in $CustomPath. Skipping." -ForegroundColor DarkYellow
+            continue
+        }
+
         foreach ($Folder in $CustomFolders) {
             $ProgramName = $Folder.Name
             $InstallPath = $Folder.FullName
@@ -108,7 +116,6 @@ foreach ($CustomPath in $CustomInventoryPaths) {
                 $SizeInGB = "ACCESSING ERROR"
             }
             
-            # Add the portable application entry
             $InstalledSoftware += [PSCustomObject]@{
                 'Editor'              = "Custom/Portable"
                 'Program Name'        = $ProgramName
@@ -134,4 +141,3 @@ Write-Host "********************************************************************
 Write-Host "PROCESS COMPLETED!" -ForegroundColor Green
 Write-Host "The COMPLETE inventory (Registry & Custom) has been saved to: $OutputFilePath" -ForegroundColor Green
 Write-Host "********************************************************************************"
-
